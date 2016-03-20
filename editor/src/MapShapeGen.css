@@ -1,0 +1,46 @@
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+
+@font-face
+{
+    src: url("../assets/fonts/Ubuntu/Ubuntu-L.ttf");
+    fontFamily: ubuntu;
+    advancedAntiAliasing: true;
+    fontStyle: normal;
+    embedAsCFF:true;
+}
+
+@font-face
+{
+    src: url("../assets/fonts/Ubuntu/Ubuntu-B.ttf");
+    fontFamily: ubuntu;
+    advancedAntiAliasing: true;
+    fontStyle: normal;
+    fontWeight: bold;
+    embedAsCFF:true;
+}
+
+@font-face
+{
+    src: url("../assets/fonts/Ubuntu/Ubuntu-LI.ttf");
+    fontFamily: ubuntu;
+    advancedAntiAliasing: true;
+    fontStyle: italic;
+    fontWeight: normal;
+    embedAsCFF:true;
+}
+
+global
+{
+    chromeColor: #494949;
+    rollOverColor: #355D89;
+    selectionColor: #294867;
+    color: #DFDFDF; 
+    contentBackgroundColor: #494949;
+    focusedTextSelectionColor: #272727;
+    symbolColor: #DFDFDF;
+    fontFamily: ubuntu;
+    modal-transparency-blur: 0;
+    modal-transparency: 0.3;
+    modalTransparencyColor: #656565;
+}

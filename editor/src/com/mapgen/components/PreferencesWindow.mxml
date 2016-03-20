@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<s:Window xmlns:fx="http://ns.adobe.com/mxml/2009"
+          xmlns:s="library://ns.adobe.com/flex/spark"
+          xmlns:mx="library://ns.adobe.com/flex/mx"
+          xmlns:mg="library://ns.mignari.com/mg"
+          width="300"
+          height="325"
+          resizable="false"
+          backgroundColor="0x494949"
+          showStatusBar="false"
+          title="@Resource(key='PW_TITLE', bundle='mapgen_strings')"
+          type="utility"
+          preinitialize="preinitializeHandler(event)"
+          creationComplete="creationCompleteHandler(event)">
+
+    <fx:Script>
+        <![CDATA[
+            import com.mapgen.utils.Version;
+            import com.mignari.events.FileTextInputEvent;
+            import com.mignari.utils.DialogDetail;
+            import com.mignari.utils.FileUtil;
+
+            import mx.collections.ArrayCollection;
+            import mx.events.FlexEvent;
+
+            import spark.events.IndexChangeEvent;
+
+            //--------------------------------------------------------------------------
+            // PROPERTIES
+            //--------------------------------------------------------------------------
+
+            [Bindable]
+            public var versions:ArrayCollection = new ArrayCollection();
+
+            private var m_ouputDirectory:File;
+            private var m_ouputDirectoryChanged:Boolean;
+            private var m_savePNG:Boolean;
+            private var m_savePNGChanged:Boolean;
+            private var m_waterItem:uint;
+            private var m_sandItem:uint;
+            private var m_grassItem:uint;
+            private var m_itemsChanged:Boolean;
+            private var m_version:uint;
+            private var m_versionChanged:Boolean;
+            private var m_detail:uint = DialogDetail.CANCEL;
+
+            //--------------------------------------
+            // Getters / Setters
+            //--------------------------------------
+
+            public function get ouputDirectory():File { return m_ouputDirectory; }
+            public function set ouputDirectory(value:File):void
+            {
+                if (!FileUtil.equals(m_ouputDirectory, value))
+                {
+                    m_ouputDirectory = value;
+                    m_ouputDirectoryChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get savePNG():Boolean { return m_savePNG; }
+            public function set savePNG(value:Boolean):void
+            {
+                if (m_savePNG != value)
+                {
+                    m_savePNG = value;
+                    m_savePNGChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get waterItem():uint { return m_waterItem; }
+            public function set waterItem(value:uint):void
+            {
+                if (m_waterItem != value)
+                {
+                    m_waterItem = value;
+                    m_itemsChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get sandItem():uint { return m_sandItem; }
+            public function set sandItem(value:uint):void
+            {
+                if (m_sandItem != value)
+                {
+                    m_sandItem = value;
+                    m_itemsChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get grassItem():uint { return m_grassItem; }
+            public function set grassItem(value:uint):void
+            {
+                if (m_grassItem != value)
+                {
+                    m_grassItem = value;
+                    m_itemsChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get version():uint { return m_version; }
+            public function set version(value:uint):void
+            {
+                if (m_version != value)
+                {
+                    m_version = value;
+                    m_versionChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get detail():uint { return m_detail; }
+
+            //--------------------------------------------------------------------------
+            // METHODS
+            //--------------------------------------------------------------------------
+
+            //--------------------------------------
+            // Override Protected
+            //--------------------------------------
+
+            override protected function commitProperties():void
+            {
+                super.commitProperties();
+
+                if (m_ouputDirectoryChanged)
+                {
+                    outputInput.file = m_ouputDirectory;
+                    confirmButton.enabled = (m_ouputDirectory != null);
+                    m_ouputDirectoryChanged = false;
+                }
+
+                if (m_savePNGChanged)
+                {
+                    savePNGCheckBox.selected = m_savePNG;
+                    m_savePNGChanged = false;
+                }
+
+                if (m_itemsChanged)
+                {
+                    waterNumericStepper.value = m_waterItem;
+                    sandNumericStepper.value = m_sandItem;
+                    grassNumericStepper.value = m_grassItem;
+                    m_itemsChanged = false;
+                }
+
+                if (m_versionChanged)
+                {
+                    m_versionChanged = false;
+                    
+                    var length:uint = this.versions.length;
+                    for (var i:uint = 0; i < length; i++)
+                    {
+                        var version:Version = this.versions[i];
+                        if (version.otb == m_version)
+                        {
+                            versionsDropDownList.selectedItem = version;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            //--------------------------------------
+            // Private
+            //--------------------------------------
+
+            private function loadVersions():void
+            {
+                this.versions.removeAll();
+
+                var file:File = File.applicationDirectory.resolvePath("versions.xml");
+
+                try
+                {
+                    var stream:FileStream = new FileStream();
+                    stream.open(file, FileMode.READ);
+                    var xml:XML = XML(stream.readUTFBytes(stream.bytesAvailable));
+                    stream.close();
+                    
+                    for each(var version:XML in xml.version)
+                    {
+                        versions.addItem(new Version(version.@label, parseInt(version.@otb)));
+                    }
+                } 
+                catch(error:Error)
+                {
+                    trace(error.message);
+                }
+            }
+
+            //--------------------------------------
+            // Event Handlers
+            //--------------------------------------
+
+            protected function preinitializeHandler(event:FlexEvent):void
+            {
+                this.loadVersions();
+            }
+
+            protected function creationCompleteHandler(event:FlexEvent):void
+            {
+                this.focusManager.setFocus(this.cancelButton);
+                this.focusManager.showFocus();
+            }
+
+            protected function browseButtonClickHandler(event:MouseEvent):void
+            {
+                var path:String = m_ouputDirectory ? m_ouputDirectory.nativePath : File.documentsDirectory.nativePath;
+                var file:File = new File(path);
+                file.addEventListener(Event.SELECT, fileSelectHandler);
+                file.browseForDirectory("Select Output Folder");
+                
+                function fileSelectHandler(event:Event):void
+                {
+                    ouputDirectory = file;
+                }
+            }
+
+            protected function outputInputFileChangeHandler(event:FileTextInputEvent):void
+            {
+                this.ouputDirectory = event.file;
+            }
+
+            protected function savePNGCheckBoxChangeHandler(event:Event):void
+            {
+                this.savePNG = this.savePNGCheckBox.selected;
+            }
+
+            protected function itemChangeHandler(event:Event):void
+            {
+                this.waterItem = this.waterNumericStepper.value;
+                this.sandItem = this.sandNumericStepper.value;
+                this.grassItem = this.grassNumericStepper.value;
+            }
+
+            protected function versionsDropDownListChangeHandler(event:IndexChangeEvent):void
+            {
+                this.version = Version(versionsDropDownList.selectedItem).otb;
+            }
+
+            protected function confirmButtonClickHandler(event:MouseEvent):void
+            {
+                m_detail = DialogDetail.OK;
+                close();
+            }
+
+        ]]>
+    </fx:Script>
+
+    <s:layout>
+        <s:VerticalLayout padding="10" />
+    </s:layout>
+
+    <mg:GroupBox width="100%" label="Save">
+        <mg:layout>
+            <s:VerticalLayout padding="10" />
+        </mg:layout>
+        
+        <s:Label text="Output Folder:" textAlign="right" />
+        
+        <s:HGroup width="100%" verticalAlign="middle">
+            <mg:FileTextInput id="outputInput" width="100%"
+                              fileChange="outputInputFileChangeHandler(event)" />
+            <s:Button id="browseButton" label="Browse..."
+                      click="browseButtonClickHandler(event)" />
+        </s:HGroup>
+
+        <s:CheckBox id="savePNGCheckBox" label="Save PNG image"
+                    change="savePNGCheckBoxChangeHandler(event)" />
+    </mg:GroupBox>
+
+    <mg:GroupBox width="100%" label="Color / Item ID">
+        <mg:layout>
+            <s:VerticalLayout padding="10" />
+        </mg:layout>
+
+        <s:HGroup width="100%" verticalAlign="middle">
+            <s:Rect width="100%" height="20">
+                <s:fill>
+                    <s:SolidColor color="0x00CC00" />
+                </s:fill>
+                <s:stroke>
+                    <s:SolidColorStroke color="0x000000" />
+                </s:stroke>
+            </s:Rect>
+            <s:NumericStepper id="grassNumericStepper"
+                              minimum="100"
+                              maximum="50000"
+                              color="0x272727"
+                              change="itemChangeHandler(event)" />
+        </s:HGroup>
+
+        <s:HGroup width="100%" verticalAlign="middle">
+            <s:Rect width="100%" height="20">
+                <s:fill>
+                    <s:SolidColor color="0xffCC99" />
+                </s:fill>
+                <s:stroke>
+                    <s:SolidColorStroke color="0x000000" />
+                </s:stroke>
+            </s:Rect>
+            <s:NumericStepper id="sandNumericStepper" minimum="100" maximum="50000" />
+        </s:HGroup>
+
+        <s:HGroup width="100%" verticalAlign="middle">
+            <s:Rect width="100%" height="20">
+                <s:fill>
+                    <s:SolidColor color="0x336699" />
+                </s:fill>
+                <s:stroke>
+                    <s:SolidColorStroke color="0x000000" />
+                </s:stroke>
+            </s:Rect>
+            <s:NumericStepper id="waterNumericStepper" minimum="100" maximum="50000" />
+        </s:HGroup>
+    </mg:GroupBox>
+
+    <mg:GroupBox label="Version" width="100%" height="100%">
+        <mg:layout>
+            <s:VerticalLayout padding="10"/>
+        </mg:layout>
+        
+        <s:DropDownList id="versionsDropDownList" width="100%" requireSelection="true" dataProvider="{versions}"
+                        change="versionsDropDownListChangeHandler(event)" />
+    </mg:GroupBox>
+
+    <mg:ShadowLine width=" 100%" />
+
+    <s:HGroup width="100%" verticalAlign="middle" horizontalAlign="center" paddingTop="5">
+        <s:Button id="confirmButton" label="Confirm" enabled="false"
+                  click="confirmButtonClickHandler(event)" />
+        <s:Button id="cancelButton" label="Cancel"
+                  click="close();" />
+    </s:HGroup>
+</s:Window>

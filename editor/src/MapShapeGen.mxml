@@ -1,0 +1,543 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+                       xmlns:s="library://ns.adobe.com/flex/spark"
+                       xmlns:mx="library://ns.adobe.com/flex/mx"
+                       xmlns:mg="library://ns.mignari.com/mg"
+                       xmlns:mapgen="com.mapgen.components.*"
+                       implements="com.mapgen.core.IMapShapeGen"
+                       minWidth="800"
+                       minHeight="600"
+                       fontSize="11"
+                       showStatusBar="false"
+                       backgroundColor="0x494949"
+                       invoke="applicationInvokeHandler(event)"
+                       preinitialize="applicationPreinitializeHandler(event)"
+                       creationComplete="applicationCreationCompleteHandler(event)"
+                       closing="applicationClosingHandler(event)">
+
+    <fx:Style source="MapShapeGen.css" />
+
+    <fx:Script>
+        <![CDATA[
+            import com.mapgen.Canvas;
+            import com.mapgen.IslandType;
+            import com.mapgen.PointType;
+            import com.mapgen.commands.CreateShapeCommand;
+            import com.mapgen.commands.MapInfoCommand;
+            import com.mapgen.commands.OpenShapeCommand;
+            import com.mapgen.commands.ProgressCommand;
+            import com.mapgen.commands.SaveMapCommand;
+            import com.mapgen.commands.SettingsCommand;
+            import com.mapgen.commands.UpdatePreviewCommand;
+            import com.mapgen.commands.UpdateShapeComamnd;
+            import com.mapgen.components.AboutWIndow;
+            import com.mapgen.components.NewMapWindow;
+            import com.mapgen.components.PreferencesWindow;
+            import com.mapgen.settings.MapShapeGenSettings;
+            import com.mapgen.utils.MapInfo;
+            import com.mignari.components.Alert;
+            import com.mignari.components.ProgressWidget;
+            import com.mignari.errors.NullArgumentError;
+            import com.mignari.events.MenuEvent;
+            import com.mignari.logging.LogFileTarget;
+            import com.mignari.managers.PopUpWindowManager;
+            import com.mignari.settings.ISettingsManager;
+            import com.mignari.settings.SettingsManager;
+            import com.mignari.utils.CapabilitiesUtil;
+            import com.mignari.utils.DescriptorUtil;
+            import com.mignari.utils.DialogDetail;
+            import com.mignari.utils.WindowUtil;
+            import com.mignari.utils.isNullOrEmpty;
+            import com.mignari.workers.IWorkerCommunicator;
+            import com.mignari.workers.LogCommand;
+            import com.mignari.workers.WorkerCommunicator;
+
+            import mx.events.CloseEvent;
+            import mx.events.FlexEvent;
+            import mx.events.FlexNativeMenuEvent;
+            import mx.logging.Log;
+            import mx.logging.LogEventLevel;
+            
+            import spark.events.IndexChangeEvent;
+
+            //--------------------------------------------------------------------------
+            // PROPERTIES
+            //--------------------------------------------------------------------------
+
+            // logging
+            private var m_logTarget:LogFileTarget;
+
+            // invoke
+            private var m_invokeArguments:Array;
+ 
+            private var m_communicator:IWorkerCommunicator;
+            private var m_sharedByteArray:ByteArray;
+            private var m_canvas:Canvas;
+            private var m_settingsManager:ISettingsManager;
+            private var m_settings:MapShapeGenSettings;
+            private var m_progressWidget:ProgressWidget;
+
+            private var m_mapInfo:MapInfo;
+            private var m_isFirstRun:Boolean;
+            private var m_waiting:Boolean;
+            private var m_creationComplete:Boolean;
+
+            //--------------------------------------
+            // Getters / Setters
+            //--------------------------------------
+
+            public function get mapName():String { return m_mapInfo && m_mapInfo.name ? m_mapInfo.name : ""; }
+            public function get mapCreated():Boolean { return m_mapInfo && m_mapInfo.created; }
+            public function get mapSaving():Boolean { return m_mapInfo && m_mapInfo.saving; }
+
+            //--------------------------------------------------------------------------
+            // METHODS
+            //--------------------------------------------------------------------------
+
+            //--------------------------------------
+            // Private
+            //--------------------------------------
+
+            private function createLogging():void
+            {
+                m_logTarget = new LogFileTarget();
+                m_logTarget.filters = ["*"];
+                m_logTarget.level = LogEventLevel.ALL;
+                m_logTarget.includeDate = true;
+                m_logTarget.includeTime = true;
+                m_logTarget.includeLevel = true;
+                
+                Log.addTarget(m_logTarget);
+            }
+
+            private function setInvokeArguments(args:Array):void
+            {
+                if (args)
+                {
+                    var path:String = args[0];
+                    if (!isNullOrEmpty(path))
+                    {
+                        var file:File = new File(path);
+                        if (file.extension == "otshape")
+                        {
+                            m_communicator.sendCommand(new OpenShapeCommand(file));
+                        }
+                    }
+                }
+            }
+
+            private function loadSettings():void
+            {
+                m_settings = new MapShapeGenSettings();
+                m_settingsManager = SettingsManager.getInstance();
+
+                if (!m_settingsManager.loadSettings(m_settings) ||
+                    m_settings.settingsApplicationVersion != DescriptorUtil.getVersionNumber())
+                {
+                    m_isFirstRun = true;
+                }
+
+                islandType.selectedIndex = IslandType.index(m_settings.islandType);
+                pointType.selectedIndex = PointType.index(m_settings.pointType);
+                beachCheckBox.selected = m_settings.showBeach;
+                riversCheckBox.selected = m_settings.showRivers;
+
+                if (m_settings.maximized)
+                {
+                    this.maximize();
+                }
+                else
+                {
+                    WindowUtil.centralizeWindowOnScreen(this.nativeWindow);
+                }
+
+                m_communicator.sendCommand(new SettingsCommand(m_settings));
+            }
+
+            private function firstRun():void
+            {
+                openPreferences();
+            }
+
+            private function saveSettings():void
+            {
+                m_settings.maximized = (this.nativeWindow.displayState == NativeWindowDisplayState.MAXIMIZED);
+                m_settings.islandType = IslandType.value(this.islandType.selectedIndex);
+                m_settings.pointType = PointType.value(this.pointType.selectedIndex);
+                m_settings.showBeach = beachCheckBox.selected;
+                m_settings.showRivers = riversCheckBox.selected;
+                m_settingsManager.saveSettings(m_settings);
+            }
+
+            private function newShape():void
+            {
+                var window:NewMapWindow = new NewMapWindow();
+                window.mapName = m_settings.mapName;
+                window.mapWidth = m_settings.mapWidth;
+                window.mapHeight = m_settings.mapHeight;
+                window.addEventListener(Event.CLOSE, closeHandler);
+                window.open();
+
+                PopUpWindowManager.addWindow(window);
+
+                function closeHandler(event:Event):void
+                {
+                    if (window.detail == DialogDetail.OK)
+                    {
+                        m_settings.mapName = window.mapName;
+                        m_settings.mapWidth = window.mapWidth;
+                        m_settings.mapHeight = window.mapHeight;
+                        m_communicator.sendCommand(new CreateShapeCommand(window.mapName, window.mapWidth, window.mapHeight));
+                    }
+                }
+            }
+
+            private function openShape():void
+            {
+                var filter:FileFilter = new FileFilter("Shape File", "*.otshape");
+                var path:String = m_settings.ouputDirectory ? m_settings.ouputDirectory.nativePath : File.documentsDirectory.nativePath;
+                var file:File = new File(path);
+                file.addEventListener(Event.SELECT, fileSelectHandler);
+                file.browseForOpen("Open Shape File", [filter]);
+
+                function fileSelectHandler(event:Event):void
+                {
+                    m_communicator.sendCommand(new OpenShapeCommand(file));
+                }
+            }
+
+            private function generateShape():void
+            {
+                m_communicator.sendCommand(new CreateShapeCommand(m_settings.mapName, m_settings.mapWidth, m_settings.mapHeight));
+            }
+
+            private function saveMap():void
+            {
+                if (!m_settings.ouputDirectory)
+                {
+                    Alert.show(resourceManager.getString("mapgen_strings", "SELECT_OUTPUT_FOLDER"), "", Alert.OK, this, function():void
+                    { 
+                        m_waiting = true;
+                        openPreferences();
+                    });
+
+                    return;
+                }
+
+                m_communicator.sendCommand(new SaveMapCommand());
+            }
+
+            private function openPreferences():void
+            {
+                var window:PreferencesWindow = new PreferencesWindow();
+                window.ouputDirectory = m_settings.ouputDirectory;
+                window.savePNG = m_settings.savePNG;
+                window.waterItem = m_settings.waterItem;
+                window.sandItem = m_settings.sandItem;
+                window.grassItem = m_settings.grassItem;
+                window.version = m_settings.version;
+                window.addEventListener(Event.CLOSE, closeHandler);
+                window.open();
+
+                PopUpWindowManager.addWindow(window);
+
+                function closeHandler(event:Event):void
+                {
+                    if (window.detail == DialogDetail.OK)
+                    {
+                        m_settings.ouputDirectory = window.ouputDirectory;
+                        m_settings.savePNG = window.savePNG;
+                        m_settings.waterItem = window.waterItem;
+                        m_settings.sandItem = window.sandItem;
+                        m_settings.grassItem = window.grassItem;
+                        m_settings.version = window.version;
+                        m_communicator.sendCommand(new SettingsCommand(m_settings));
+
+                        if (m_waiting)
+                        {
+                            m_waiting = false;
+                            saveMap();
+                        }
+                    }
+                }
+            }
+            
+            private function updateShape():void
+            {
+                m_communicator.sendCommand(new UpdateShapeComamnd(IslandType.value(this.islandType.selectedIndex),
+                                                                  PointType.value(this.pointType.selectedIndex),
+                                                                  beachCheckBox.selected,
+                                                                  riversCheckBox.selected));
+            }
+
+            private function logCallback(level:uint, message:String, stack:String = "", id:uint = 0):void
+            {
+                Alert.show(stack, "Error", Alert.OK, this, closeHandler);
+
+                function closeHandler(event:CloseEvent):void
+                {
+                    exit();
+                }
+            }
+
+            private function mapInfoCallback(info:MapInfo):void
+            {
+                if (!info)
+                {
+                    throw new NullArgumentError("info");
+                }
+
+                m_mapInfo = info;
+
+                this.title = DescriptorUtil.getName() + " - " + info.name;
+                this.controlsContainer.enabled = info.created;
+                this.islandSeedTextInput.text = info.seed;
+                this.islandType.selectedIndex = IslandType.index(info.islandType);
+                this.pointType.selectedIndex = PointType.index(info.pointType);
+                this.beachCheckBox.selected = info.beach;
+                this.riversCheckBox.selected = info.rivers;
+            }
+
+            private function updatePreviewCallback(islandSeed:String):void
+            {
+                try
+                {
+                    this.islandSeedTextInput.text = islandSeed;
+                    m_canvas.copyFromByteArray(m_sharedByteArray);
+                } 
+                catch(error:Error)
+                {
+                    ////
+                }
+            }
+
+            private function progressCallback(id:String, value:uint, total:uint, label:String):void
+            {
+                m_progressWidget.progress(id, value, total, label);
+            }
+
+            private function openAboutWindow():void
+            {
+                var window:AboutWIndow = new AboutWIndow();
+                window.open();
+
+                PopUpWindowManager.addWindow(window);
+            }
+
+            //--------------------------------------
+            // Event Handlers
+            //--------------------------------------
+
+            protected function applicationInvokeHandler(event:InvokeEvent):void
+            {
+                if (event.arguments && event.arguments.length > 0)
+                {
+                    if (m_creationComplete)
+                    {
+                        setInvokeArguments(event.arguments);
+                    }
+                    else
+                    {
+                        m_invokeArguments = event.arguments;
+                    }
+                }
+            }
+
+            protected function applicationPreinitializeHandler(event:FlexEvent):void
+            {
+                m_progressWidget = new ProgressWidget();
+
+                m_communicator = new WorkerCommunicator(Workers.MapShapeGenWorker);
+                m_communicator.registerClass(MapShapeGenSettings);
+                m_communicator.registerClass(MapInfo);
+                m_communicator.registerCallback(LogCommand, logCallback);
+                m_communicator.registerCallback(MapInfoCommand, mapInfoCallback);
+                m_communicator.registerCallback(UpdatePreviewCommand, updatePreviewCallback);
+                m_communicator.registerCallback(ProgressCommand, progressCallback);
+                m_communicator.start();
+
+                m_sharedByteArray = new ByteArray();
+                m_sharedByteArray.shareable = true;
+                m_communicator.worker.setSharedProperty("sharedByteArray", m_sharedByteArray);
+            }
+
+            protected function applicationCreationCompleteHandler(event:FlexEvent):void
+            {
+                Alert.okLabel = "Ok";
+
+                loadSettings();
+
+                m_canvas = new Canvas(1024, 1024);
+                image.source = m_canvas.bitmap;
+
+                m_creationComplete = true;
+
+                if (m_isFirstRun)
+                {
+                    firstRun();
+                }
+            }
+
+            protected function applicationClosingHandler(event:Event):void
+            {
+                this.saveSettings();
+            }
+
+            protected function nativeMenuSelectedHandler(event:MenuEvent):void
+            {
+                switch(event.data)
+                {
+                    case Menu.FILE_NEW:
+                        this.newShape();
+                        break;
+
+                    case Menu.FILE_OPEN:
+                        this.openShape();
+                        break;
+                    
+                    case Menu.FILE_GENERATE:
+                        this.generateShape();
+                        break;
+
+                    case Menu.FILE_SAVE:
+                        this.saveMap();
+                        break;
+
+                    case Menu.FILE_PREFERENCES:
+                        this.openPreferences();
+                        break;
+
+                    case Menu.FILE_EXIT:
+                        this.close();
+                        break;
+
+                    case Menu.HELP_ABOUT:
+                        this.openAboutWindow();
+                        break;
+                }
+            }
+
+            protected function nativeMenuShowMenuItem(event:FlexNativeMenuEvent):void
+            {
+                var index:uint = CapabilitiesUtil.isMacOS ? 1 : 0;
+                var items:Array = nativeMenu.items;
+
+                // File > New
+                items[index].submenu.items[0].enabled = !this.mapSaving;
+
+                // File > Open
+                items[index].submenu.items[1].enabled = !this.mapSaving;
+                
+                // File > Generate
+                items[index].submenu.items[2].enabled = !this.mapSaving;
+
+                // File > Save
+                items[index].submenu.items[3].enabled = this.mapCreated && !this.mapSaving;
+
+                // File > Preferences
+                items[index].submenu.items[5].enabled = !this.mapSaving;
+            }
+
+            protected function islandTypeChangeHandler(event:IndexChangeEvent):void
+            {
+                m_settings.islandType = IslandType.value(event.newIndex);
+                m_communicator.sendCommand(new SettingsCommand(m_settings));
+                updateShape();
+            }
+
+            protected function pointTypeChangeHandler(event:IndexChangeEvent):void
+            {
+                m_settings.pointType = PointType.value(event.newIndex);
+                m_communicator.sendCommand(new SettingsCommand(m_settings));
+                updateShape();
+            }
+
+            protected function beachCheckBoxChangeHandler(event:Event):void
+            {
+                m_settings.showBeach = beachCheckBox.selected;
+                m_communicator.sendCommand(new SettingsCommand(m_settings));
+                updateShape();
+            }
+
+            protected function riversCheckBoxChangeHandler(event:Event):void
+            {
+                m_settings.showRivers = riversCheckBox.selected;
+                m_communicator.sendCommand(new SettingsCommand(m_settings));
+                updateShape();
+            }
+        ]]>
+    </fx:Script>
+
+    <s:menu>
+        <mapgen:Menu id="nativeMenu"
+                     selected="nativeMenuSelectedHandler(event)"
+                     menuShow="nativeMenuShowMenuItem(event)" />
+    </s:menu>
+
+    <s:BorderContainer width="100%" height="100%" right="205" bottom="20" backgroundColor="0x336699" borderColor="0x272727">
+        <s:Scroller id="scroller" width="100%" height="100%">
+            <s:Group width="100%" height="100%">
+                <s:Image id="image" />
+            </s:Group>
+        </s:Scroller>
+    </s:BorderContainer>
+
+    <s:BorderContainer id="controlsContainer" width="200" height="100%" right="0" bottom="20" enabled="false" backgroundColor="0x494949" borderColor="0x272727">
+        <s:layout>
+            <s:VerticalLayout padding="5" horizontalAlign="right" />
+        </s:layout>
+
+        <mg:GroupBox width="100%" label="Island Shape">
+            <mg:layout>
+                <s:VerticalLayout padding="10" />
+            </mg:layout>
+
+            <s:HGroup width="100%" verticalAlign="middle">
+                <s:Label text="Shape:" width="65" textAlign="right" />
+                <s:TextInput id="islandSeedTextInput" width="100%" editable="false" />
+            </s:HGroup>
+
+            <s:HGroup width="100%" verticalAlign="middle">
+                <s:Label text="Island type:" width="65" textAlign="right" />
+                <s:DropDownList id="islandType" width="100%" requireSelection="true"
+                                change="islandTypeChangeHandler(event)">
+                    <s:dataProvider>
+                        <s:ArrayList>
+                            <fx:String>Perlin</fx:String>
+                            <fx:String>Radial</fx:String>
+                        </s:ArrayList>
+                    </s:dataProvider>
+                </s:DropDownList>
+            </s:HGroup>
+
+            <s:HGroup width="100%" verticalAlign="middle">
+                <s:Label text="Point type:" width="65" textAlign="right" />
+                <s:DropDownList id="pointType" width="100%" requireSelection="true"
+                                change="pointTypeChangeHandler(event)">
+                    <s:dataProvider>
+                        <s:ArrayList>
+                            <fx:String>Relaxed</fx:String>
+                            <fx:String>Random</fx:String>
+                            <fx:String>Square</fx:String>
+                            <fx:String>Hexagon</fx:String>
+                        </s:ArrayList>
+                    </s:dataProvider>
+                </s:DropDownList>
+            </s:HGroup>
+        </mg:GroupBox>
+
+        <mg:GroupBox width="100%" label="@Resource(key='OPTIONS', bundle='mapgen_strings')">
+            <mg:layout>
+                <s:VerticalLayout padding="10" />
+            </mg:layout>
+
+            <s:CheckBox id="beachCheckBox" label="Beach" selected="true"
+                        change="beachCheckBoxChangeHandler(event)" />
+            <s:CheckBox id="riversCheckBox" label="Rivers" selected="true"
+                        change="riversCheckBoxChangeHandler(event)" />
+        </mg:GroupBox>
+    </s:BorderContainer>
+
+    <mapgen:StatusBar width="100%" height="20" bottom="0" />
+</s:WindowedApplication>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<s:Window xmlns:fx="http://ns.adobe.com/mxml/2009"
+          xmlns:s="library://ns.adobe.com/flex/spark"
+          xmlns:mx="library://ns.adobe.com/flex/mx"
+          xmlns:mg="library://ns.mignari.com/mg"
+          width="270"
+          height="110"
+          resizable="false"
+          backgroundColor="0x494949"
+          showStatusBar="false"
+          title="New Map"
+          type="utility"
+          creationComplete="creationCompleteHandler(event)">
+
+    <fx:Script>
+        <![CDATA[
+            import com.mignari.utils.DialogDetail;
+            import com.mignari.utils.isNullOrEmpty;
+
+            import mx.events.FlexEvent;
+
+            import spark.events.TextOperationEvent;
+
+            //--------------------------------------------------------------------------
+            // PROPERTIES
+            //--------------------------------------------------------------------------
+
+            private var m_mapName:String;
+            private var m_mapWidth:uint;
+            private var m_mapHeight:uint;
+            private var m_propertiesChanged:Boolean;
+
+            private var m_detail:uint = DialogDetail.CANCEL;
+
+            //--------------------------------------
+            // Getters / Setters
+            //--------------------------------------
+
+            public function get mapName():String { return m_mapName; }
+            public function set mapName(value:String):void
+            {
+                if (m_mapName != value)
+                {
+                    m_mapName = value;
+                    m_propertiesChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get mapWidth():uint { return m_mapWidth; }
+            public function set mapWidth(value:uint):void
+            {
+                if (m_mapWidth != value)
+                {
+                    m_mapWidth = value;
+                    m_propertiesChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get mapHeight():uint { return m_mapHeight; }
+            public function set mapHeight(value:uint):void
+            {
+                if (m_mapHeight != value)
+                {
+                    m_mapHeight = value;
+                    m_propertiesChanged = true;
+                    invalidateProperties();
+                }
+            }
+
+            public function get detail():uint { return m_detail; }
+
+            //--------------------------------------
+            // Override Protected
+            //--------------------------------------
+
+            override protected function commitProperties():void
+            {
+                super.commitProperties();
+
+                if (m_propertiesChanged)
+                {
+                    m_propertiesChanged = true;
+                    this.mapNameTextInput.text = m_mapName;
+                    this.widthNumericStepper.value = m_mapWidth;
+                    this.heightNumericStepper.value = m_mapHeight;
+                    this.confirmButton.enabled = !isNullOrEmpty(m_mapName);
+                }
+            }
+
+            //--------------------------------------
+            // Event Handlers
+            //--------------------------------------
+
+            protected function creationCompleteHandler(event:FlexEvent):void
+            {
+                this.focusManager.setFocus(this.cancelButton);
+                this.focusManager.showFocus();
+            }
+
+            protected function mapNameTextInputChangeHandler(event:TextOperationEvent):void
+            {
+                this.mapName = mapNameTextInput.text;
+            }
+
+            protected function widthNumericStepperChangeHandler(event:Event):void
+            {
+                this.mapWidth = widthNumericStepper.value;
+            }
+
+            protected function heightNumericStepperChangeHandler(event:Event):void
+            {
+                this.mapHeight = heightNumericStepper.value;
+            }
+
+            protected function confirmButtonClickHandler(event:MouseEvent):void
+            {
+                m_detail = DialogDetail.OK;
+                close();
+            }
+
+        ]]>
+    </fx:Script>
+    
+    <s:layout>
+        <s:VerticalLayout padding="10" />
+    </s:layout>
+    
+    <s:HGroup width="100%" verticalAlign="middle">
+        <s:Label text="Name:" textAlign="right" />
+        <s:TextInput id="mapNameTextInput" width="100%" text="Untitled"
+                     change="mapNameTextInputChangeHandler(event)" />
+    </s:HGroup>
+    
+    <s:HGroup width="100%">
+        <s:HGroup width="100%" verticalAlign="middle" horizontalAlign="right">
+            <s:Label text="Width:" textAlign="right" />
+            <s:NumericStepper id="widthNumericStepper"
+                              minimum="128"
+                              maximum="1024"
+                              stepSize="128"
+                              value="512"
+                              color="0x272727"
+                              change="widthNumericStepperChangeHandler(event)" />
+        </s:HGroup>
+        
+        <s:HGroup width="100%" verticalAlign="middle" horizontalAlign="right">
+            <s:Label text="Height:" textAlign="right"/>
+            <s:NumericStepper id="heightNumericStepper"
+                              minimum="128"
+                              maximum="1024"
+                              stepSize="128"
+                              value="512"
+                              color="0x272727"
+                              change="heightNumericStepperChangeHandler(event)" />
+        </s:HGroup>
+    </s:HGroup>
+    
+    <s:Spacer height="100%" />
+    
+    <mg:ShadowLine width="100%" />
+    
+    <s:HGroup width="100%" verticalAlign="middle" horizontalAlign="center" paddingTop="5">
+        <s:Button id="confirmButton" label="Confirm" click="confirmButtonClickHandler(event)" />
+        <s:Button id="cancelButton" label="Cancel" click="close();" />
+    </s:HGroup>
+</s:Window>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="MapgenClasses"/>
+    <classEntry path="com.mapgen.Canvas"/>
+    <classEntry path="com.mapgen.PointType"/>
+    <classEntry path="com.mapgen.utils.PointTypeUtil"/>
+    <classEntry path="com.mapgen.IslandType"/>
+    <classEntry path="com.mapgen.IslandShape"/>
+    <classEntry path="com.mapgen.PointSelector"/>
+    <classEntry path="com.mapgen.BiomeColor"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>
