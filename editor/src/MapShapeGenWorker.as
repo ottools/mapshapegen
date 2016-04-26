@@ -39,7 +39,7 @@ package
     import com.mignari.utils.isNullOrEmpty;
     import com.mignari.workers.IWorkerCommunicator;
     import com.mignari.workers.WorkerCommunicator;
-
+    
     import flash.display.Sprite;
     import flash.filesystem.File;
     import flash.utils.ByteArray;
@@ -55,6 +55,7 @@ package
         private var m_sharedByteArray:ByteArray;
         private var m_canvas:Canvas;
         private var m_settings:MapShapeGenSettings;
+        private var m_progress:ProgressCommand;
 
         //--------------------------------------------------------------------------
         // CONSTRUCTOR
@@ -77,6 +78,8 @@ package
             m_generator = new Generator();
             m_generator.onChanged.add(changedCallback);
             m_generator.onProgress.add(progressCallback);
+
+            m_progress = new ProgressCommand();
         }
 
         //--------------------------------------------------------------------------
@@ -123,7 +126,7 @@ package
 
         private function progressCallback(id:String, value:uint, total:uint, label:String):void
         {
-            m_communicator.sendCommand(new ProgressCommand(id, value, total, label));
+            m_communicator.sendCommand(m_progress.update(id, value, total, label));
         }
 
         private function settingsCallback(settings:MapShapeGenSettings):void

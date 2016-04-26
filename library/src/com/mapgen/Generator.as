@@ -295,7 +295,7 @@ package com.mapgen
                     {
                         color.RGB = c;
                         var tile:Tile = new Tile(start + x, start + y, 7);
-                        
+
                         if (color.R == 0xFF)
                         {
                             tile.ground = sand;
@@ -308,7 +308,7 @@ package com.mapgen
                         {
                             tile.ground = water;
                         }
-                        
+
                         tiles[tiles.length] = tile;
                     }
 
@@ -322,9 +322,10 @@ package com.mapgen
 
             m_progressSignal.dispatch(progressId, total, total, label);
 
+            tiles.fixed = true;
             var otbm:OtbmWriter = new OtbmWriter();
             otbm.onProgress.add(m_progressSignal.dispatch);
-            otbm.saveOtbm(directory.resolvePath(m_name + ".otbm"), tiles, version);
+            otbm.saveOtbm(directory.resolvePath(m_name + ".otbm"), tiles, version, "Generated with MapShapeGen.");
 
             var shapeFile:File = directory.resolvePath(m_name + ".otshape");
             var otshape:OTMLDocument = new OTMLDocument();
