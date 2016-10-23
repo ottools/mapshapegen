@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+// Author: nailsonnego@gmail.com
+// License: MIT
+-->
 
 <s:Window xmlns:fx="http://ns.adobe.com/mxml/2009"
           xmlns:s="library://ns.adobe.com/flex/spark"
@@ -15,7 +19,7 @@
     <fx:Script>
         <![CDATA[
             import com.mignari.utils.DescriptorUtil;
-            
+
             import mx.events.FlexEvent;
 
             protected function creationCompleteHandler(event:FlexEvent):void
@@ -36,7 +40,7 @@
               horizontalAlign="center"
               verticalAlign="middle">
         <s:Label id="appName" fontSize="20"/>
-        
+
         <s:Label id="appVersion" />
     </s:VGroup>
 

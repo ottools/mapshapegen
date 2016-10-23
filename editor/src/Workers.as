@@ -1,3 +1,6 @@
+// Author: nailsonnego@gmail.com
+// License: MIT
+
 package
 {
     import flash.utils.ByteArray;

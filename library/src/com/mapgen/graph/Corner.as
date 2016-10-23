@@ -1,3 +1,7 @@
+// Author: amitp@cs.stanford.edu
+// Author: nailsonnego@gmail.com
+// License: MIT
+
 package com.mapgen.graph
 {
     import flash.geom.Point;

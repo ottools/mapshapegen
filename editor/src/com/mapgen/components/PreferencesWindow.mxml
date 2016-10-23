@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+// Author: nailsonnego@gmail.com
+// License: MIT
+-->
 
 <s:Window xmlns:fx="http://ns.adobe.com/mxml/2009"
           xmlns:s="library://ns.adobe.com/flex/spark"
@@ -153,7 +157,7 @@
                 if (m_versionChanged)
                 {
                     m_versionChanged = false;
-                    
+
                     var length:uint = this.versions.length;
                     for (var i:uint = 0; i < length; i++)
                     {
@@ -183,12 +187,12 @@
                     stream.open(file, FileMode.READ);
                     var xml:XML = XML(stream.readUTFBytes(stream.bytesAvailable));
                     stream.close();
-                    
+
                     for each(var version:XML in xml.version)
                     {
                         versions.addItem(new Version(version.@label, parseInt(version.@otb)));
                     }
-                } 
+                }
                 catch(error:Error)
                 {
                     trace(error.message);
@@ -216,7 +220,7 @@
                 var file:File = new File(path);
                 file.addEventListener(Event.SELECT, fileSelectHandler);
                 file.browseForDirectory("Select Output Folder");
-                
+
                 function fileSelectHandler(event:Event):void
                 {
                     ouputDirectory = file;
@@ -262,9 +266,9 @@
         <mg:layout>
             <s:VerticalLayout padding="10" />
         </mg:layout>
-        
+
         <s:Label text="Output Folder:" textAlign="right" />
-        
+
         <s:HGroup width="100%" verticalAlign="middle">
             <mg:FileTextInput id="outputInput" width="100%"
                               fileChange="outputInputFileChangeHandler(event)" />
@@ -326,7 +330,7 @@
         <mg:layout>
             <s:VerticalLayout padding="10"/>
         </mg:layout>
-        
+
         <s:DropDownList id="versionsDropDownList" width="100%" requireSelection="true" dataProvider="{versions}"
                         change="versionsDropDownListChangeHandler(event)" />
     </mg:GroupBox>

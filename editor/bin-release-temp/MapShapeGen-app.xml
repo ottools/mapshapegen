@@ -6,7 +6,7 @@
 	<versionNumber>1.1.0</versionNumber>
 	<versionLabel>1.1</versionLabel>
 	<initialWindow>
-		<content>[This value will be overwritten by Flash Builder in the output app.xml]</content>
+		<content>MapShapeGen.swf</content>
 		<autoOrients>false</autoOrients>
 		<fullScreen>false</fullScreen>
 		<visible>false</visible>

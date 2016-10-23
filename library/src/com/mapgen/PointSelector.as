@@ -1,3 +1,7 @@
+// Author: amitp@cs.stanford.edu
+// Author: nailsonnego@gmail.com
+// License: MIT
+
 package com.mapgen
 {
     import com.nodename.Delaunay.Voronoi;
@@ -23,7 +27,7 @@ package com.mapgen
         //--------------------------------------------------------------------------
 
         static public var NUM_LLOYD_RELAXATIONS:int = 2;
-        
+
         // The square and hex grid point selection remove randomness from
         // where the points are; we need to inject more randomness elsewhere
         // to make the maps look better. I do this in the corner
@@ -124,7 +128,7 @@ package com.mapgen
             return function(numPoints:int):Vector.<Point>
             {
                 numPoints = Math.sqrt(numPoints);
-                
+
                 var points:Vector.<Point> = new Vector.<Point>();
                 for (var x:int = 0; x < numPoints; x++)
                 {

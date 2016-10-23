@@ -1,3 +1,6 @@
+// Author: nailsonnego@gmail.com
+// License: MIT
+
 package com.mapgen.utils
 {
     public final class Version

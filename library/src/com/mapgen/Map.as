@@ -1,5 +1,6 @@
 // Make a map out of a voronoi graph
 // Author: amitp@cs.stanford.edu
+// Author: nailsonnego@gmail.com
 // License: MIT
 
 package com.mapgen
@@ -9,36 +10,36 @@ package com.mapgen
     import com.mapgen.graph.Edge;
     import com.nodename.Delaunay.Voronoi;
     import com.nodename.geom.LineSegment;
-    
+
     import flash.geom.Point;
     import flash.geom.Rectangle;
     import flash.system.System;
     import flash.utils.Dictionary;
-    
+
     import de.polygonal.math.PM_PRNG;
-    
+
     public class Map
     {
         //--------------------------------------------------------------------------
         // PROPERTIES
         //--------------------------------------------------------------------------
-        
+
         private var m_width:uint;
         private var m_height:uint;
-        
+
         // Island shape is controlled by the islandRandom seed and the
         // type of island, passed in when we set the island shape. The
         // islandShape function uses both of them to determine whether any
         // point should be water or land.
         private var m_islandShape:Function;
-        
+
         // Island details are controlled by this random generator. The
         // initial map upon loading is always deterministic, but
         // subsequent maps reset this random number generator with a
         // random seed.
         private var m_mapRandom:PM_PRNG = new PM_PRNG();
         private var m_needsMoreRandomness:Boolean; // see comment in PointSelector
-        
+
         // Point selection is random for the original article, with Lloyd
         // Relaxation, but there are other ways of choosing points. Grids
         // in particular can be much simpler to start with, because you
@@ -46,45 +47,45 @@ package com.mapgen
         // I continue to use Voronoi here, to reuse the graph building
         // code. If you're using a grid, generate the graph directly.
         private var m_pointSelector:Function;
-        
+
         // These store the graph data
         public var points:Vector.<Point>;  // Only useful during map construction
         public var centers:Vector.<Center>;
         public var corners:Vector.<Corner>;
         public var edges:Vector.<Edge>;
-        
+
         //--------------------------------------
         // Getters / Setters
         //--------------------------------------
-        
+
         public function get mapRandom():PM_PRNG { return m_mapRandom; }
-        
+
         //--------------------------------------------------------------------------
         // CONSTRUCTOR
         //--------------------------------------------------------------------------
-        
+
         public function Map(width:uint, height:uint)
         {
             this.setSize(width, height);
-            
+
             m_mapRandom = new PM_PRNG();
         }
-        
+
         //--------------------------------------------------------------------------
         // METHODS
         //--------------------------------------------------------------------------
-        
+
         //--------------------------------------
         // Public
         //--------------------------------------
-        
+
         public function setSize(width:uint, height:uint):void
         {
             m_width = width;
             m_height = height;
             reset();
         }
-        
+
         // Random parameters governing the overall shape of the island
         public function newIsland(islandType:String, pointType:String, seed:int, variant:int):void
         {
@@ -93,47 +94,47 @@ package com.mapgen
                 case IslandType.PERLIN:
                     m_islandShape = IslandShape.makePerlin(seed);
                     break;
-                
+
                 case IslandType.RADIAL:
                     m_islandShape = IslandShape.makeRadial(seed);
                     break;
-                
+
                 default:
                     throw new Error("Unknown island type " + islandType);
             }
-            
+
             switch(pointType)
             {
                 case PointType.RELAXED:
                     m_pointSelector = PointSelector.generateRelaxed(m_width, seed);
                     break;
-                
+
                 case PointType.RANDOM:
                     m_pointSelector = PointSelector.generateRandom(m_width, seed);
                     break;
-                
+
                 case PointType.SQUARE:
                     m_pointSelector = PointSelector.generateSquare(m_width, seed);
                     break;
-                
+
                 case PointType.HEXAGON:
                     m_pointSelector = PointSelector.generateHexagon(m_width, seed);
                     break;
-                
+
                 default:
                     throw new Error("Unknown point type " + pointType);
             }
-            
+
             m_needsMoreRandomness = PointSelector.needsMoreRandomness(pointType);
             m_mapRandom.seed = variant;
         }
-        
+
         public function placePoints():void
         {
             this.reset();
             this.points = m_pointSelector(2000);
         }
-        
+
         public function buildGraph():void
         {
             var voronoi:Voronoi = new Voronoi(points, null, new Rectangle(0, 0, m_width, m_height));
@@ -143,13 +144,13 @@ package com.mapgen
             voronoi = null;
             points = null;
         }
-        
+
         public function assignElevations():void
         {
             assignCornerElevations();
             assignOceanCoastAndLand();
             redistributeElevations(landCorners(corners));
-            
+
             for each (var q:Corner in corners)
             {
                 if (q.ocean || q.coast)
@@ -157,10 +158,10 @@ package com.mapgen
                     q.elevation = 0.0;
                 }
             }
-            
+
             assignPolygonElevations();
         }
-        
+
         public function assignMoisture():void
         {
             calculateDownslopes();
@@ -169,7 +170,7 @@ package com.mapgen
             redistributeMoisture(landCorners(corners));
             assignPolygonMoisture();
         }
-        
+
         public function assignBiomes():void
         {
             for each (var p:Center in centers)
@@ -177,7 +178,7 @@ package com.mapgen
                 p.biome = getBiome(p);
             }
         }
-        
+
         // Look up a Voronoi Edge object given two adjacent Voronoi
         // polygons, or two adjacent Voronoi corners
         public function lookupEdgeFromCenter(p:Center, r:Center):Edge
@@ -189,14 +190,14 @@ package com.mapgen
                     return edge;
                 }
             }
-            
+
             return null;
         }
-        
+
         //--------------------------------------
         // Private
         //--------------------------------------
-        
+
         // Although Lloyd relaxation improves the uniformity of polygon
         // sizes, it doesn't help with the edge lengths. Short edges can
         // be bad for some games, and lead to weird artifacts on
@@ -208,7 +209,7 @@ package com.mapgen
         private function improveCorners():void
         {
             var newCorners:Vector.<Point> = new Vector.<Point>(corners.length);
-            
+
             // First we compute the average of the centers next to each corner.
             for each (var q:Corner in corners)
             {
@@ -224,19 +225,19 @@ package com.mapgen
                         point.x += r.point.x;
                         point.y += r.point.y;
                     }
-                    
+
                     point.x /= q.touches.length;
                     point.y /= q.touches.length;
                     newCorners[q.index] = point;
                 }
             }
-            
+
             // Move the corners to the new locations.
             for (var i:int = 0; i < corners.length; i++)
             {
                 corners[i].point = newCorners[i];
             }
-            
+
             // The edge midpoints were computed for the old corners and need
             // to be recomputed.
             for each (var edge:Edge in edges)
@@ -247,7 +248,7 @@ package com.mapgen
                 }
             }
         }
-        
+
         // Create an array of corners that are on land only, for use by
         // algorithms that work only on land.  We return an array instead
         // of a vector because the redistribution algorithms want to sort
@@ -255,7 +256,7 @@ package com.mapgen
         private function landCorners(corners:Vector.<Corner>):Array
         {
             var locations:Array = [];
-            
+
             for each (var corner:Corner in corners)
             {
                 if (!corner.ocean && !corner.coast)
@@ -263,10 +264,10 @@ package com.mapgen
                     locations[locations.length] = corner;
                 }
             }
-            
+
             return locations;
         }
-        
+
         // Build graph data structure in 'edges', 'centers', 'corners',
         // based on information in the Voronoi results: point.neighbors
         // will be a list of neighboring points of the same type (corner
@@ -280,7 +281,7 @@ package com.mapgen
             var p:Center, q:Corner, point:Point, other:Point;
             var libedges:Vector.<com.nodename.Delaunay.Edge> = voronoi.edges();
             var centerLookup:Dictionary = new Dictionary();
-            
+
             // Build Center objects for each of the points, and a lookup map
             // to find those Center objects again as we build the graph
             for each (point in points)
@@ -294,14 +295,14 @@ package com.mapgen
                 centers.push(p);
                 centerLookup[point] = p;
             }
-            
+
             // Workaround for Voronoi lib bug: we need to call region()
             // before Edges or neighboringSites are available
             for each (p in centers)
             {
                 voronoi.region(p.point);
             }
-            
+
             // The Voronoi library generates multiple Point objects for
             // corners, and we need to canonicalize to one Corner object.
             // To make lookup fast, we keep an array of Points, bucketed by
@@ -312,12 +313,12 @@ package com.mapgen
             function makeCorner(point:Point):Corner
             {
                 var q:Corner;
-                
+
                 if (point == null)
                 {
                     return null;
                 }
-                
+
                 for (var bucket:int = int(point.x)-1; bucket <= int(point.x)+1; bucket++)
                 {
                     for each (q in _cornerMap[bucket])
@@ -330,13 +331,13 @@ package com.mapgen
                         }
                     }
                 }
-                
+
                 bucket = int(point.x);
                 if (!_cornerMap[bucket])
                 {
                     _cornerMap[bucket] = [];
                 }
-                
+
                 q = new Corner();
                 q.index = corners.length;
                 corners.push(q);
@@ -348,30 +349,30 @@ package com.mapgen
                 _cornerMap[bucket].push(q);
                 return q;
             }
-            
+
             // Helper functions for the following for loop; ideally these
             // would be inlined
             function addToCornerList(v:Vector.<Corner>, x:Corner):void
             {
                 if (x != null && v.indexOf(x) < 0)
-                { 
+                {
                     v[v.length] = x;
                 }
             }
-            
+
             function addToCenterList(v:Vector.<Center>, x:Center):void
             {
                 if (x != null && v.indexOf(x) < 0)
-                { 
+                {
                     v[v.length] = x;
                 }
             }
-            
+
             for each (var libedge:com.nodename.Delaunay.Edge in libedges)
             {
                 var dedge:LineSegment = libedge.delaunayLine();
                 var vedge:LineSegment = libedge.voronoiEdge();
-                
+
                 // Fill the graph data. Make an Edge object corresponding to
                 // the edge from the voronoi library.
                 var edge:Edge = new Edge();
@@ -379,68 +380,68 @@ package com.mapgen
                 edge.river = 0;
                 edges[edges.length] = edge;
                 edge.midpoint = vedge.p0 && vedge.p1 && Point.interpolate(vedge.p0, vedge.p1, 0.5);
-                
-                // Edges point to corners. Edges point to centers. 
+
+                // Edges point to corners. Edges point to centers.
                 edge.v0 = makeCorner(vedge.p0);
                 edge.v1 = makeCorner(vedge.p1);
                 edge.d0 = centerLookup[dedge.p0];
                 edge.d1 = centerLookup[dedge.p1];
-                
+
                 // Centers point to edges. Corners point to edges.
                 if (edge.d0 != null)
                 {
                     edge.d0.borders.push(edge);
                 }
-                
+
                 if (edge.d1 != null)
-                { 
+                {
                     edge.d1.borders.push(edge);
                 }
-                
+
                 if (edge.v0 != null)
                 {
                     edge.v0.protrudes.push(edge);
                 }
-                
+
                 if (edge.v1 != null)
                 {
                     edge.v1.protrudes.push(edge);
                 }
-                
+
                 // Centers point to centers.
                 if (edge.d0 != null && edge.d1 != null)
                 {
                     addToCenterList(edge.d0.neighbors, edge.d1);
                     addToCenterList(edge.d1.neighbors, edge.d0);
                 }
-                
+
                 // Corners point to corners
                 if (edge.v0 != null && edge.v1 != null)
                 {
                     addToCornerList(edge.v0.adjacent, edge.v1);
                     addToCornerList(edge.v1.adjacent, edge.v0);
                 }
-                
+
                 // Centers point to corners
                 if (edge.d0 != null)
                 {
                     addToCornerList(edge.d0.corners, edge.v0);
                     addToCornerList(edge.d0.corners, edge.v1);
                 }
-                
+
                 if (edge.d1 != null)
                 {
                     addToCornerList(edge.d1.corners, edge.v0);
                     addToCornerList(edge.d1.corners, edge.v1);
                 }
-                
+
                 // Corners point to centers
                 if (edge.v0 != null)
                 {
                     addToCenterList(edge.v0.touches, edge.d0);
                     addToCenterList(edge.v0.touches, edge.d1);
                 }
-                
+
                 if (edge.v1 != null)
                 {
                     addToCenterList(edge.v1.touches, edge.d0);
@@ -448,7 +449,7 @@ package com.mapgen
                 }
             }
         }
-        
+
         // Determine elevations and water at Voronoi corners. By
         // construction, we have no local minima. This is important for
         // the downslope vectors later, which are used in the river
@@ -461,12 +462,12 @@ package com.mapgen
         {
             var q:Corner, s:Corner;
             var queue:Array = [];
-            
+
             for each (q in corners)
             {
                 q.water = !inside(q.point);
             }
-            
+
             for each (q in corners)
             {
                 // The edges of the map are elevation 0
@@ -487,7 +488,7 @@ package com.mapgen
             while (queue.length > 0)
             {
                 q = queue.shift();
-                
+
                 for each (s in q.adjacent)
                 {
                     // Every step up is epsilon over water or 1 over land. The
@@ -519,7 +520,7 @@ package com.mapgen
                 }
             }
         }
-        
+
         // Change the overall distribution of elevations so that lower
         // elevations are more common than higher
         // elevations. Specifically, we want elevation X to have frequency
@@ -531,7 +532,7 @@ package com.mapgen
             // elevation barely shows up on the map, so we set it to 1.1.
             var SCALE_FACTOR:Number = 1.1;
             var i:int, y:Number, x:Number;
-            
+
             locations.sortOn('elevation', Array.NUMERIC);
             for (i = 0; i < locations.length; i++)
             {
@@ -553,7 +554,7 @@ package com.mapgen
                 locations[i].elevation = x;
             }
         }
-        
+
         // Change the overall distribution of moisture to be evenly distributed.
         private function redistributeMoisture(locations:Array):void
         {
@@ -563,7 +564,7 @@ package com.mapgen
                 locations[i].moisture = i/(locations.length-1);
             }
         }
-        
+
         // Determine polygon and corner types: ocean, coast, land.
         private function assignOceanCoastAndLand():void
         {
@@ -575,7 +576,7 @@ package com.mapgen
             // connected an ocean as ocean.
             var queue:Array = [];
             var p:Center, q:Corner, r:Center, numWater:int;
-            
+
             for each (p in centers)
             {
                 numWater = 0;
@@ -588,7 +589,7 @@ package com.mapgen
                         q.water = true;
                         queue.push(p);
                     }
-                    
+
                     if (q.water)
                     {
                         numWater += 1;
@@ -596,7 +597,7 @@ package com.mapgen
                 }
                 p.water = (p.ocean || numWater >= p.corners.length * LAKE_THRESHOLD);
             }
-            
+
             while (queue.length > 0)
             {
                 p = queue.shift();
@@ -609,7 +610,7 @@ package com.mapgen
                     }
                 }
             }
-            
+
             // Set the polygon attribute 'coast' based on its neighbors. If
             // it has at least one ocean and at least one land neighbor,
             // then this is a coastal polygon.
@@ -622,11 +623,11 @@ package com.mapgen
                     numOcean += int(r.ocean);
                     numLand += int(!r.water);
                 }
-                
+
                 p.coast = (numOcean > 0) && (numLand > 0);
             }
-            
-            
+
+
             // Set the corner attributes based on the computed polygon
             // attributes. If all polygons connected to this corner are
             // ocean, then it's ocean; if all are land, then it's land;
@@ -640,13 +641,13 @@ package com.mapgen
                     numOcean += int(p.ocean);
                     numLand += int(!p.water);
                 }
-                
+
                 q.ocean = (numOcean == q.touches.length);
                 q.coast = (numOcean > 0) && (numLand > 0);
                 q.water = q.border || ((numLand != q.touches.length) && !q.coast);
             }
         }
-        
+
         // Polygon elevations are the average of the elevations of their corners.
         private function assignPolygonElevations():void
         {
@@ -658,11 +659,11 @@ package com.mapgen
                 {
                     sumElevation += q.elevation;
                 }
-                
+
                 p.elevation = sumElevation / p.corners.length;
             }
         }
-        
+
         // Calculate downslope pointers.  At every point, we point to the
         // point downstream from it, or to itself.  This is used for
         // generating rivers and watersheds.
@@ -678,11 +679,11 @@ package com.mapgen
                         r = s;
                     }
                 }
-                
+
                 q.downslope = r;
             }
         }
-        
+
         // Create rivers along edges. Pick a random corner point, then
         // move downslope. Mark the edges and corners as rivers.
         private function createRivers():void
@@ -695,7 +696,7 @@ package com.mapgen
                 {
                     continue;
                 }
-                
+
                 // Bias rivers to go west: if (q.downslope.x > q.x) continue;
                 while (!q.coast)
                 {
@@ -703,7 +704,7 @@ package com.mapgen
                     {
                         break;
                     }
-                    
+
                     var edge:Edge = lookupEdgeFromCorner(q, q.downslope);
                     edge.river = edge.river + 1;
                     q.river = (q.river || 0) + 1;
@@ -712,7 +713,7 @@ package com.mapgen
                 }
             }
         }
-        
+
         // Calculate moisture. Freshwater sources spread moisture: rivers
         // and lakes (not oceans). Saltwater sources have moisture but do
         // not spread it (we set it at the end, after propagation).
@@ -720,7 +721,7 @@ package com.mapgen
         {
             var q:Corner;
             var queue:Array = [];
-            
+
             // Fresh water
             for each (q in corners)
             {
@@ -734,11 +735,11 @@ package com.mapgen
                     q.moisture = 0.0;
                 }
             }
-            
+
             while (queue.length > 0)
             {
                 q = queue.shift();
-                
+
                 for each (var r:Corner in q.adjacent)
                 {
                     var newMoisture:Number = q.moisture * 0.9;
@@ -758,7 +759,7 @@ package com.mapgen
                 }
             }
         }
-        
+
         // Polygon moisture is the average of the moisture at corners
         private function assignPolygonMoisture():void
         {
@@ -771,14 +772,14 @@ package com.mapgen
                     {
                         q.moisture = 1.0;
                     }
-                    
+
                     sumMoisture += q.moisture;
                 }
-                
+
                 p.moisture = sumMoisture / p.corners.length;
             }
         }
-        
+
         private function lookupEdgeFromCorner(q:Corner, s:Corner):Edge
         {
             for each (var edge:Edge in q.protrudes)
@@ -788,10 +789,10 @@ package com.mapgen
                     return edge;
                 }
             }
-            
+
             return null;
         }
-        
+
         private function reset():void
         {
             // Break cycles so the garbage collector will release data.
@@ -799,7 +800,7 @@ package com.mapgen
             {
                 points.splice(0, points.length);
             }
-            
+
             if (edges)
             {
                 for each (var edge:Edge in edges)
@@ -807,10 +808,10 @@ package com.mapgen
                     edge.d0 = edge.d1 = null;
                     edge.v0 = edge.v1 = null;
                 }
-                
+
                 edges.splice(0, edges.length);
             }
-            
+
             if (centers)
             {
                 for each (var p:Center in centers)
@@ -819,10 +820,10 @@ package com.mapgen
                     p.corners.splice(0, p.corners.length);
                     p.borders.splice(0, p.borders.length);
                 }
-                
+
                 centers.splice(0, centers.length);
             }
-            
+
             if (corners)
             {
                 for each (var q:Corner in corners)
@@ -833,46 +834,46 @@ package com.mapgen
                     q.downslope = null;
                     q.watershed = null;
                 }
-                
+
                 corners.splice(0, corners.length);
             }
-            
+
             if (!points)
             {
                 points = new Vector.<Point>();
             }
-            
+
             if (!edges)
             {
                 edges = new Vector.<Edge>();
             }
-            
+
             if (!centers)
             {
                 centers = new Vector.<Center>();
             }
-            
+
             if (!corners)
             {
                 corners = new Vector.<Corner>();
             }
-            
+
             System.gc();
         }
-        
+
         // Determine whether a given point should be on the island or in the water.
         private function inside(p:Point):Boolean
         {
             return m_islandShape(new Point(2 * (p.x / m_width - 0.5), 2 * (p.y / m_height - 0.5)));
         }
-        
+
         //--------------------------------------------------------------------------
         // STATIC
         //--------------------------------------------------------------------------
-        
+
         // 0 to 1, fraction of water corners for water polygon
         static public const LAKE_THRESHOLD:Number = 0.3;
-        
+
         // Assign a biome type to each polygon. If it has
         // ocean/coast/water, then that's the biome; otherwise it depends
         // on low/high elevation and low/medium/high moisture. This is

@@ -27,7 +27,7 @@ package com.mapgen
     import flash.utils.ByteArray;
 
     import mx.graphics.codec.PNGEncoder;
-    
+
     import otlib.map.Tile;
     import otlib.otbm.OtbmWriter;
     import otlib.otml.OTMLDocument;
@@ -262,7 +262,7 @@ package com.mapgen
             }
 
             m_saving = true;
-            
+
             var bitmap:BitmapData = this.createBitmap();
             var bytes:ByteArray = new PNGEncoder().encode(bitmap);
             bytes.position = 0;
@@ -450,7 +450,7 @@ package com.mapgen
                         graphics.moveTo(m_noisyEdges.path0[edge.index][0].x, m_noisyEdges.path0[edge.index][0].y);
                         drawPathForwards(graphics, m_noisyEdges.path0[edge.index]);
                         drawPathBackwards(graphics, m_noisyEdges.path1[edge.index]);
-                        
+
                     }
                 }
             }
@@ -511,7 +511,7 @@ package com.mapgen
         //--------------------------------------------------------------------------
         // STATIC
         //--------------------------------------------------------------------------
-        
+
         static public function generateSeed():String
         {
             return int(Math.random() * 100000) + "-" + (1 + int(9 * Math.random()));

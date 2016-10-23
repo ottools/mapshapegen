@@ -1,3 +1,7 @@
+// Author: amitp@cs.stanford.edu
+// Author: nailsonnego@gmail.com
+// License: MIT
+
 package
 {
     internal final class MapgenClasses
